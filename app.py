@@ -190,7 +190,7 @@ if check_password():
         
         for mesa in sorted(df_v['M_Int'].unique()):
             sub = df_v[df_v['M_Int'] == mesa]
-            st.markdown(f"<div class='fdsamesa-header'><span>🪑 MESA {mesa}</span><span class='pers-label'>{len(sub)} PERS.</span></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='mesa-header'><span>🪑 MESA {mesa}</span><span class='pers-label'>{len(sub)} PERS.</span></div>", unsafe_allow_html=True)
             for idx, row in sub.iterrows():
                 l1, l2, l3, l4, l5 = st.columns([0.6, 2.5, 1.5, 1.5, 0.4])
                 
