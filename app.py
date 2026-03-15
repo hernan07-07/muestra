@@ -10,57 +10,61 @@ import streamlit.components.v1 as components
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="TONUCOS Gestor", layout="wide")
 
-# --- CSS DE ALTO CONTRASTE PARA MÓVILES (FIX DEFINITIVO) ---
+# --- CSS: FIX NUCLEAR PARA CONTRASTE EN DESPLEGABLES ---
 st.markdown("""
     <style>
-    /* Fondo general */
     .stApp { background-color: #cfd8dc; }
     .block-container { padding-top: 0rem !important; max-width: 95% !important; }
     header { visibility: hidden; }
     
-    /* Logo y Título */
     .logo-container { display: flex; justify-content: center; margin-top: -15px; }
     .event-title { text-align: center; font-size: 20px; font-weight: 900; color: #263238; margin-top: -10px; margin-bottom: 5px; }
 
-    /* Etiquetas Negras */
     label, .stMarkdown p, .stSelectbox label, .stTextInput label {
         color: #000000 !important;
         font-weight: 800 !important;
     }
     
-    /* Inputs Principales */
     .stTextInput input, .stNumberInput input, div[data-baseweb="select"] > div {
         border: 2px solid #263238 !important;
         background-color: #ffffff !important;
         color: #000000 !important;
     }
 
-    /* --- EL FIX PARA EL CELULAR: COLOR DE LAS OPCIONES --- */
-    /* Forzamos el contenedor del menú desplegable */
-    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+    /* 🔥 FIX NUCLEAR PARA MENÚS DESPLEGABLES 🔥 */
+    /* Forzar fondo blanco y borde al contenedor flotante */
+    div[data-baseweb="popover"], 
+    ul[role="listbox"], 
+    div[role="listbox"] {
         background-color: #ffffff !important;
-        color: #000000 !important;
+        border: 2px solid #263238 !important;
+    }
+    
+    /* Forzar fondo blanco a cada opción */
+    li[role="option"] {
+        background-color: #ffffff !important;
     }
 
-    /* Forzamos cada opción individual del menú */
-    div[data-baseweb="option"], li[role="option"] {
-        background-color: #ffffff !important;
+    /* Forzar COLOR NEGRO a los textos (spans) dentro de las opciones */
+    li[role="option"] span, 
+    div[data-baseweb="popover"] span {
         color: #000000 !important;
-        font-weight: 700 !important;
-        border-bottom: 1px solid #eeeeee;
+        font-weight: 800 !important;
     }
 
-    /* Color cuando pasas el dedo o seleccionas */
-    div[data-baseweb="option"]:hover, li[role="option"]:hover {
+    /* Efecto al pasar el dedo o mouse */
+    li[role="option"]:hover, 
+    li[role="option"]:hover span {
         background-color: #263238 !important;
         color: #ffffff !important;
     }
 
-    /* Texto dentro del selectbox ya seleccionado */
-    div[data-baseweb="select"] div {
+    /* Texto de la opción que ya está seleccionada y visible */
+    div[data-baseweb="select"] div, div[data-baseweb="select"] span {
         color: #000000 !important;
+        font-weight: 700 !important;
     }
-    /* -------------------------------------------------- */
+    /* ---------------------------------------------------- */
 
     .total-card { 
         background-color: #263238; color: #ffffff; padding: 5px; 
@@ -177,7 +181,6 @@ if not df_v.empty:
             st.session_state.df.at[idx, 'Mesa'] = l1.text_input(f"m_{idx}", row['Mesa'], label_visibility="collapsed")
             st.session_state.df.at[idx, 'Nombre'] = l2.text_input(f"n_{idx}", row['Nombre'], label_visibility="collapsed").upper()
             
-            # Aplicar color de fondo solo a la celda del selectbox
             bg = cat_colors.get(row['Categoria'], "#fff")
             st.markdown(f'<style>div[data-baseweb="select"]:has(input[aria-label*="c_{idx}"]) {{ background-color: {bg} !important; }}</style>', unsafe_allow_html=True)
             st.session_state.df.at[idx, 'Categoria'] = l3.selectbox(f"c_{idx}", ["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"], index=["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"].index(row['Categoria']), label_visibility="collapsed")
