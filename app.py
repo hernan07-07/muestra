@@ -1,205 +1,121 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from gspread_dataframe import get_as_dataframe, set_with_dataframe
-import secrets
-import os
-import streamlit.components.v1 as components
+from PIL import Image
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="TONUCOS Gestor", layout="wide")
+# Configuración de la página
+st.set_page_config(page_title="GrupoTONUCOS Gestor", layout="wide")
 
-# --- CSS: FIX DEFINITIVO MÓVIL Y CURSOR ---
+# Fondo gris claro (truco de CSS para el diseño de tarjetas)
 st.markdown("""
-    <style>
-    .stApp { background-color: #cfd8dc; }
-    .block-container { padding-top: 0rem !important; max-width: 95% !important; }
-    header { visibility: hidden; }
-    
-    /* CURSOR VISIBLE Y FOCO */
-    input { caret-color: #ff0000 !important; } 
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border: 2px solid #1e88e5 !important;
-        box-shadow: 0 0 5px rgba(30, 136, 229, 0.5) !important;
-    }
-
-    /* 🚨 FIX SUPREMO PARA LETRAS BLANCAS EN DESPLEGABLE CELULAR 🚨 */
-    /* Forzamos que CUALQUIER lista de opciones (listbox/menu) tenga fondo blanco */
-    div[data-baseweb="popover"], ul[role="listbox"], ul[data-baseweb="menu"] {
-        background-color: #ffffff !important;
-    }
-
-    /* Forzamos que CUALQUIER texto dentro de una opción sea NEGRO */
-    li[role="option"], li[role="option"] span, div[data-baseweb="popover"] * {
-        color: #000000 !important;
-        font-weight: 800 !important;
-    }
-
-    /* Color al seleccionar/tocar */
-    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
-        background-color: #263238 !important;
-    }
-    li[role="option"]:hover *, li[role="option"][aria-selected="true"] * {
-        color: #ffffff !important;
-    }
-
-    /* Textos y Etiquetas Base */
-    label, .stMarkdown p, .stSelectbox label, .stTextInput label {
-        color: #000000 !important;
-        font-weight: 800 !important;
-    }
-    
-    .stTextInput input, .stNumberInput input, div[data-baseweb="select"] > div {
-        border: 2px solid #263238 !important;
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-
-    /* Estética General */
-    .logo-container { display: flex; justify-content: center; margin-top: -15px; }
-    .event-title { text-align: center; font-size: 20px; font-weight: 900; color: #263238; margin-top: -10px; margin-bottom: 5px; }
-    .total-card { background-color: #263238; color: #ffffff; padding: 5px; border-radius: 4px; text-align: center; border: 1px solid #000; }
-    .total-card b { font-size: 16px; }
-    hr { margin: 2px 0px !important; border-top: 1px solid #263238 !important; }
-    .mesa-header { background-color: #000; color: #fff; padding: 4px 10px; font-weight: bold; margin-top: 5px !important; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
-    .pers-label { background-color: #fff; color: #000; padding: 0px 6px; border-radius: 8px; font-size: 10px; }
-    
-    /* Ajuste para el radio button de ordenamiento */
-    div.row-widget.stRadio > div { flex-direction: row; justify-content: center; align-items: center; }
-    div.row-widget.stRadio label { padding: 0px 10px; background-color: #fff; border: 1px solid #000; border-radius: 4px; margin: 0 2px;}
-    
-    #MainMenu, footer {visibility: hidden;}
-    </style>
+<style>
+.stApp {
+    background-color: #f0f2f6;
+}
+.total-card {
+    background-color: white;
+    border: 2px solid black;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+}
+.total-card-highlight {
+    background-color: black;
+    color: white;
+    border: 2px solid black;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+}
+.mesa-header {
+    background-color: black;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# --- FUNCIONES ---
-def conectar_google_sheet(nombre_archivo):
-    try:
-        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        s = st.secrets["gcp_service_account"]
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(s), scope)
-        client = gspread.authorize(creds)
-        return client.open(nombre_archivo).worksheet("Invitados")
-    except: return None
+# Encabezado (Logo centrado)
+logo_path = "path/to/your/logo.png" # Reemplazar con la ruta real o imagen local
+try:
+    logo = Image.open(logo_path)
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.image(logo, use_column_width=True)
+except FileNotFoundError:
+    # Marcador de posición si no se encuentra el logo
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.markdown("<div style='text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: white; color: black;'>[Logotipo GrupoTONUCOS]</div>", unsafe_allow_html=True)
 
-def cargar_datos(archivo):
-    sheet = conectar_google_sheet(archivo)
-    if sheet:
-        try:
-            df = get_as_dataframe(sheet, evaluate_formulas=True, dtype=str).dropna(how='all')
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-            for col in ["ID", "Mesa", "Nombre", "Categoria", "Observaciones", "Asistio"]:
-                if col not in df.columns: df[col] = ""
-            return df.fillna("")
-        except: return pd.DataFrame(columns=["ID", "Mesa", "Nombre", "Categoria", "Observaciones", "Asistio"])
-    return pd.DataFrame()
+st.markdown("<h1 style='text-align: center; color: black; font-weight: bold;'>BODA JUAN Y MARTA</h1>", unsafe_allow_html=True)
 
-def guardar_datos(df_to_save, archivo):
-    sheet = conectar_google_sheet(archivo)
-    if sheet:
-        sheet.clear()
-        set_with_dataframe(sheet, df_to_save)
+# Panel de totales (resaltando el TOTAL)
+total_cols = st.columns(5)
+with total_cols[0]:
+    st.markdown("<div class='total-card-highlight'><p style='font-size: 14px; color: white;'>TOTAL</p><p style='font-size: 24px; font-weight: bold; color: white;'>11</p></div>", unsafe_allow_html=True)
+with total_cols[1]:
+    st.markdown("<div class='total-card'><p style='font-size: 14px; color: black;'>MAYOR</p><p style='font-size: 24px; font-weight: bold; color: black;'>6</p></div>", unsafe_allow_html=True)
+with total_cols[2]:
+    st.markdown("<div class='total-card'><p style='font-size: 14px; color: black;'>ADOL.</p><p style='font-size: 24px; font-weight: bold; color: black;'>3</p></div>", unsafe_allow_html=True)
+with total_cols[3]:
+    st.markdown("<div class='total-card'><p style='font-size: 14px; color: black;'>MENOR</p><p style='font-size: 24px; font-weight: bold; color: black;'>2</p></div>", unsafe_allow_html=True)
+with total_cols[4]:
+    st.markdown("<div class='total-card'><p style='font-size: 14px; color: black;'>BEBÉ</p><p style='font-size: 24px; font-weight: bold; color: black;'>0</p></div>", unsafe_allow_html=True)
 
-# --- APP ---
-nombre_evento = st.query_params.get("id", "Boda Juan y Marta").replace("_", " ")
-
-if 'df' not in st.session_state or st.session_state.get('last_event') != nombre_evento:
-    st.session_state.df = cargar_datos(nombre_evento)
-    st.session_state.last_event = nombre_evento
-
-if "focus_key" not in st.session_state: st.session_state.focus_key = 0
-
-# LOGO Y TITULO
-st.markdown("<div class='logo-container'>", unsafe_allow_html=True)
-if os.path.exists("logonegro.jpg"): st.image("logonegro.jpg", width=220)
-st.markdown("</div>", unsafe_allow_html=True)
-st.markdown(f"<div class='event-title'>{nombre_evento}</div>", unsafe_allow_html=True)
-
-# TOTALES
-df_f = st.session_state.df
-if not df_f.empty:
-    t_cols = st.columns(6)
-    stats = [("Total", len(df_f)), ("Mesas", df_f[df_f['Mesa'].astype(str).str.strip() != "0"]['Mesa'].nunique()), ("Mayor", len(df_f[df_f['Categoria']=='MAYOR'])), ("Adol.", len(df_f[df_f['Categoria']=='ADOLESCENTE'])), ("Menor", len(df_f[df_f['Categoria']=='MENOR'])), ("Bebé", len(df_f[df_f['Categoria']=='BEBÉ']))]
-    for i, (l, v) in enumerate(stats):
-        t_cols[i].markdown(f"<div class='total-card'><small>{l}</small><br><b>{v}</b></div>", unsafe_allow_html=True)
-
-# AÑADIR REGISTRO
+# Sección "AÑADIR REGISTRO" - MODIFICADA SEGÚN EL BOCETO
 with st.expander("➕ AÑADIR REGISTRO", expanded=True):
-    c1, c2, c3 = st.columns([0.8, 1.2, 2.5])
-    f_m = c1.number_input("MESA", min_value=0, step=1, key=f"f_m_{st.session_state.focus_key}")
-    f_c = c2.selectbox("CATEGORÍA", ["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"], key=f"f_c_{st.session_state.focus_key}")
-    f_n = c3.text_input("APELLIDO y nombre", key=f"f_n_{st.session_state.focus_key}")
-    f_o = st.text_input("OBSERVACIONES (Opcional)", key=f"f_o_{st.session_state.focus_key}")
+    st.markdown("<h4 style='color: black;'>NUEVO INVITADO</h4>", unsafe_allow_html=True)
     
-    if st.button("📥 GUARDAR E INSERTAR INVITADO", use_container_width=True):
-        if f_n:
-            nuevo = pd.DataFrame([{"ID": secrets.token_hex(3).upper(), "Mesa": str(int(f_m)), "Nombre": f_n.upper(), "Categoria": f_c, "Observaciones": f_o.upper(), "Asistio": "NO"}])
-            st.session_state.df = pd.concat([st.session_state.df, nuevo], ignore_index=True)
-            guardar_datos(st.session_state.df, nombre_evento)
-            st.session_state.focus_key += 1
-            st.rerun()
-
-components.html(f"<script>setTimeout(function(){{ window.parent.document.querySelectorAll('input')[0].focus(); }}, 300);</script>", height=0)
+    # Definir anchos de columna para una sola línea
+    # Los anchos son: Mesa, Nombre, Categoría, Observaciones, Botón
+    col1, col2, col3, col4, col5 = st.columns([1, 4, 3, 2, 1])
+    
+    with col1:
+        # Usamos widgets sin etiquetas para imitar el aspecto de una fila de datos
+        # Placeholder actúa como etiqueta en línea
+        mesa_in = st.number_input("", value=0, min_value=0, step=1, placeholder="Mesa")
+    with col2:
+        nombre_in = st.text_input("", placeholder="APELLIDO y nombre")
+    with col3:
+        categoria_in = st.selectbox("", options=["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"], index=0)
+    with col4:
+        # El campo de observaciones es más pequeño
+        obs_in = st.text_input("", placeholder="OBSERVACIONES")
+    with col5:
+        # Botón con icono de guardar/añadir al final de la línea
+        add_btn = st.button("💾", key="add_guest_btn")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# BUSCADOR Y BOTONES DE ORDEN
-bc1, bc2, bc3 = st.columns([2, 1.5, 1])
-with bc1: 
-    s_q = st.text_input("🔍 BUSCAR", placeholder="Nombre...").upper()
-with bc2: 
-    st.write("<div style='margin-top:22px'></div>", unsafe_allow_html=True)
-    orden_vista = st.radio("ORDEN", ["🪑 Mesas", "🔤 A-Z"], label_visibility="collapsed", horizontal=True)
-with bc3: 
-    st.write("<div style='margin-top:22px'></div>", unsafe_allow_html=True)
-    if st.button("💾 GUARDAR", use_container_width=True):
-        guardar_datos(st.session_state.df, nombre_evento)
-        st.toast("¡Sincronizado!")
+# Sección inferior (Buscador y botón de guardar)
+c1, c2, c3 = st.columns([4, 1, 1])
+with c1:
+    st.text_input("🔍 BUSCAR INVITADO", placeholder="Nombre...")
+with c3:
+    st.button("💾 GUARDAR CAMBIOS")
 
-# LISTADO
-df_v = st.session_state.df.copy()
-if s_q: df_v = df_v[df_v['Nombre'].str.contains(s_q, na=False)]
+# Muestra de registros ya cargados para demostrar consistencia
+# Mesa 1
+st.markdown("<div class='mesa-header'><span>🪑 MESA 1</span><span>1 PERS.</span></div>", unsafe_allow_html=True)
+c1, c2, c3, c4, c5 = st.columns([1, 4, 3, 2, 1])
+with c1: st.text_input("", value="1", disabled=True)
+with c2: st.text_input("", value="MARTINA", disabled=True)
+with c3: st.text_input("", value="ADOLESCENTE", disabled=True)
+with c4: st.text_input("", value="", disabled=True)
+with c5: st.button("🗑️", key="del_1")
 
-if not df_v.empty:
-    df_v['M_Int'] = pd.to_numeric(df_v['Mesa'], errors='coerce').fillna(0).astype(int)
-    cat_colors = {"MAYOR": "#ced4da", "ADOLESCENTE": "#90cdf4", "MENOR": "#9ae6b4", "BEBÉ": "#feb2b2"}
-    
-    # --- VISTA POR MESAS ---
-    if orden_vista == "🪑 Mesas":
-        for mesa in sorted(df_v['M_Int'].unique()):
-            sub = df_v[df_v['M_Int'] == mesa]
-            st.markdown(f"<div class='mesa-header'><span>🪑 MESA {mesa}</span><span class='pers-label'>{len(sub)} PERS.</span></div>", unsafe_allow_html=True)
-            for idx, row in sub.iterrows():
-                l1, l2, l3, l4, l5 = st.columns([0.6, 2.5, 1.5, 1.5, 0.4])
-                st.session_state.df.at[idx, 'Mesa'] = l1.text_input(f"m_{idx}", row['Mesa'], label_visibility="collapsed")
-                st.session_state.df.at[idx, 'Nombre'] = l2.text_input(f"n_{idx}", row['Nombre'], label_visibility="collapsed").upper()
-                
-                bg = cat_colors.get(row['Categoria'], "#fff")
-                st.markdown(f'<style>div[data-baseweb="select"]:has(input[aria-label*="c_{idx}"]) {{ background-color: {bg} !important; }}</style>', unsafe_allow_html=True)
-                st.session_state.df.at[idx, 'Categoria'] = l3.selectbox(f"c_{idx}", ["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"], index=["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"].index(row['Categoria']), label_visibility="collapsed")
-                
-                st.session_state.df.at[idx, 'Observaciones'] = l4.text_input(f"o_{idx}", row['Observaciones'], label_visibility="collapsed").upper()
-                if l5.button("🗑️", key=f"d_{idx}"):
-                    st.session_state.df = st.session_state.df.drop(idx)
-                    guardar_datos(st.session_state.df, nombre_evento)
-                    st.rerun()
+# Mesa 2
+st.markdown("<div class='mesa-header'><span>🪑 MESA 2</span><span>7 PERS.</span></div>", unsafe_allow_html=True)
+c1, c2, c3, c4, c5 = st.columns([1, 4, 3, 2, 1])
+with c1: st.text_input("", value="2", disabled=True)
+with c2: st.text_input("", value="MARINTINE NARO", disabled=True)
+with c3: st.text_input("", value="MENOR", disabled=True)
+with c4: st.text_input("", value="Cumple", disabled=True)
+with c5: st.button("🗑️", key="del_2")
 
-    # --- VISTA ALFABÉTICA (A-Z) ---
-    else:
-        df_v = df_v.sort_values(by="Nombre") # Ordenar por nombre
-        st.markdown(f"<div class='mesa-header'><span>🔤 ORDEN ALFABÉTICO</span><span class='pers-label'>{len(df_v)} PERS.</span></div>", unsafe_allow_html=True)
-        for idx, row in df_v.iterrows():
-            l1, l2, l3, l4, l5 = st.columns([0.6, 2.5, 1.5, 1.5, 0.4])
-            st.session_state.df.at[idx, 'Mesa'] = l1.text_input(f"m_{idx}", row['Mesa'], label_visibility="collapsed")
-            st.session_state.df.at[idx, 'Nombre'] = l2.text_input(f"n_{idx}", row['Nombre'], label_visibility="collapsed").upper()
-            
-            bg = cat_colors.get(row['Categoria'], "#fff")
-            st.markdown(f'<style>div[data-baseweb="select"]:has(input[aria-label*="c_{idx}"]) {{ background-color: {bg} !important; }}</style>', unsafe_allow_html=True)
-            st.session_state.df.at[idx, 'Categoria'] = l3.selectbox(f"c_{idx}", ["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"], index=["MAYOR", "ADOLESCENTE", "MENOR", "BEBÉ"].index(row['Categoria']), label_visibility="collapsed")
-            
-            st.session_state.df.at[idx, 'Observaciones'] = l4.text_input(f"o_{idx}", row['Observaciones'], label_visibility="collapsed").upper()
-            if l5.button("🗑️", key=f"d_{idx}"):
-                st.session_state.df = st.session_state.df.drop(idx)
-                guardar_datos(st.session_state.df, nombre_evento)
-                st.rerun()
+# Nota: Reemplazar logo_path con la ruta real o imagen local para cargar el logotipo.
